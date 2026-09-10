@@ -1,0 +1,114 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Foto {
+  id              Int        @id @default(autoincrement())
+  url             String     @db.VarChar(255)
+  livro           Livro      @relation(fields: [livroId], references: [id])
+  livroId         Int
+  @@map("fotos")
+}
+
+model Livro {
+  id          Int           @id @default(autoincrement())
+  titulo      String        @db.VarChar(45)
+  autor       String        @db.VarChar(45)
+  editora     String        @db.VarChar(45)
+  ano         Int
+  categoria   String        @db.VarChar(30)
+  sinopse     String[]
+  quantidade  Int
+  admin       Admin         @relation(fields: [adminId], references: [id])
+  adminId     String        @db.VarChar(36)
+  avaliacoes  Avaliacao[]
+  fotos       Foto[]
+  itensVendas  itemVenda[]
+  // modelo              String       @db.VarChar(30)
+  // ano                 Int          @db.SmallInt
+  // preco               Decimal      @db.Decimal(10, 2)
+  // km                  Int
+  // foto                String
+  // acessorios          String?
+  // combustivel         Combustiveis @default(FLEX)
+  // createdAt           DateTime     @default(now())
+  // updatedAt           DateTime     @updatedAt()
+  // destaque            Boolean      @default(true)
+  // marca               Marca        @relation(fields: [marcaId], references: [id])
+  // marcaId             Int
+  // pontosFortes        String[]
+  // pontosFracos        String[] 
+  // consumoMedioCidade  Decimal?     @db.Decimal(6,2) 
+  // consumoMedioEstrada Decimal?     @db.Decimal(6,2)  
+  // propostas           Proposta[]
+  @@map("Livros")
+}
+
+model Cliente {
+  id            String   @db.VarChar(36) @id @default(uuid())
+  nome          String   @db.VarChar(60)
+  email         String   @db.VarChar(40) @unique
+  senha         String   @db.VarChar(60)   // senha deve ser varchar(60)
+  telefone      String   @db.Char(13)
+  cidade        String   @db.VarChar(30) 
+  createdAt     DateTime @default(now())
+  avaliacoes    Avaliacao[]
+  vendas        Venda[]
+  @@map("clientes")
+}
+
+model Avaliacao {
+  id          Int       @id @default(autoincrement())
+  cliente     Cliente   @relation(fields: [clienteId], references: [id])
+  clienteId   String    @db.VarChar(36)
+  livro       Livro     @relation(fields: [livroId], references: [id])
+  livroId     Int
+  nota        Int
+  comentario  String    @db.VarChar(255)
+  createdAt   DateTime  @default(now())
+  @@map("avaliacoes")
+}
+
+model Admin {
+  id      String  @db.VarChar(36) @id @default(uuid())
+  nome    String  @db.VarChar(60)
+  email   String  @db.VarChar(40) @unique
+  senha   String  @db.VarChar(60)   // senha deve ser varchar(60)
+  livros  Livro[]
+  @@map("admins")
+}
+
+model Venda {
+  id          Int           @id @default(autoincrement())
+  dataVenda   DateTime      @default(now())
+  valor       Decimal       @db.Decimal(10,2)
+  status      status        @default(Pendente)
+  cliente     Cliente       @relation(fields: [clienteId], references: [id])
+  clienteId   String        @db.VarChar(36)
+  itensVendas  itemVenda[]
+}
+
+model itemVenda {
+  id          Int       @id @default(autoincrement())
+  quantidade  Int
+  valor       Decimal   @db.Decimal(10,2)
+  venda       Venda     @relation(fields: [vendaId], references: [id])
+  vendaId     Int
+  livro       Livro     @relation(fields: [livroId], references: [id])
+  livroId     Int
+}
+
+enum status{
+  Pendente
+  Vendido
+}
