@@ -34,23 +34,6 @@ model Livro {
   avaliacoes  Avaliacao[]
   fotos       Foto[]
   itensVendas  itemVenda[]
-  // modelo              String       @db.VarChar(30)
-  // ano                 Int          @db.SmallInt
-  // preco               Decimal      @db.Decimal(10, 2)
-  // km                  Int
-  // foto                String
-  // acessorios          String?
-  // combustivel         Combustiveis @default(FLEX)
-  // createdAt           DateTime     @default(now())
-  // updatedAt           DateTime     @updatedAt()
-  // destaque            Boolean      @default(true)
-  // marca               Marca        @relation(fields: [marcaId], references: [id])
-  // marcaId             Int
-  // pontosFortes        String[]
-  // pontosFracos        String[] 
-  // consumoMedioCidade  Decimal?     @db.Decimal(6,2) 
-  // consumoMedioEstrada Decimal?     @db.Decimal(6,2)  
-  // propostas           Proposta[]
   @@map("Livros")
 }
 

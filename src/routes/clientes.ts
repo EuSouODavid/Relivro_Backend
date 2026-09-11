@@ -1,133 +1,171 @@
-// import { prisma } from "../../lib/prisma"
-// import { Router } from "express"
-// import bcrypt from 'bcrypt'
-// import { z } from 'zod'
+import { prisma } from "../../lib/prisma"
+import { Router } from "express"
+import bcrypt from 'bcrypt'
+import { z } from 'zod'
 
-// const router = Router()
+const router = Router()
 
-// const clienteSchema = z.object({
-//   nome: z.string().min(10, {
-//     message: "Nome do cliente deve possuir, no mínimo, 10 caracteres"
-//   }),
-//   email: z.string().email({message: "Informe um e-mail válido"}),
-//   senha: z.string(),
-//   cidade: z.string()
-// })
+const clienteSchema = z.object({
+  nome: z.string().min(10, {
+    message: "Nome do cliente deve possuir, no mínimo, 10 caracteres"
+  }),
+  email: z.string().email({ message: "Informe um e-mail válido" }),
+  senha: z.string(),
+  cidade: z.string(),
+  telefone: z.string().length(13, {
+    message: "Telefone deve estar no formato (99)999999999"
+  }),
+})
 
-// router.get("/", async (req, res) => {
-//   try {
-//     const clientes = await prisma.cliente.findMany()
-//     res.status(200).json(clientes)
-//   } catch (error) {
-//     res.status(400).json(error)
-//   }
-// })
+function validaSenha(senha: string) {
+  const mensa: string[] = []
 
-// function validaSenha(senha: string) {
+  if (senha.length < 8) {
+    mensa.push("Erro... senha deve possuir, no mínimo, 8 caracteres")
+  }
 
-//   const mensa: string[] = []
+  let pequenas = 0
+  let grandes = 0
+  let numeros = 0
+  let simbolos = 0
 
-//   // .length: retorna o tamanho da string (da senha)
-//   if (senha.length < 8) {
-//     mensa.push("Erro... senha deve possuir, no mínimo, 8 caracteres")
-//   }
+  for (const letra of senha) {
+    if ((/[a-z]/).test(letra)) {
+      pequenas++
+    } else if ((/[A-Z]/).test(letra)) {
+      grandes++
+    } else if ((/[0-9]/).test(letra)) {
+      numeros++
+    } else {
+      simbolos++
+    }
+  }
 
-//   // contadores
-//   let pequenas = 0
-//   let grandes = 0
-//   let numeros = 0
-//   let simbolos = 0
+  if (pequenas == 0) mensa.push("Erro... senha deve possuir letra(s) minúscula(s)")
+  if (grandes == 0) mensa.push("Erro... senha deve possuir letra(s) maiúscula(s)")
+  if (numeros == 0) mensa.push("Erro... senha deve possuir número(s)")
+  if (simbolos == 0) mensa.push("Erro... senha deve possuir símbolo(s)")
 
-//   // senha = "abc123"
-//   // letra = "a"
+  return mensa
+}
 
-//   // percorre as letras da variável senha
-//   for (const letra of senha) {
-//     // expressão regular
-//     if ((/[a-z]/).test(letra)) {
-//       pequenas++
-//     }
-//     else if ((/[A-Z]/).test(letra)) {
-//       grandes++
-//     }
-//     else if ((/[0-9]/).test(letra)) {
-//       numeros++
-//     } else {
-//       simbolos++
-//     }
-//   }
+// campos que podem ser expostos com segurança (nunca a senha)
+const clienteSelect = {
+  id: true,
+  nome: true,
+  email: true,
+  cidade: true,
+  telefone: true,
+  createdAt: true,
+}
 
-//   if (pequenas == 0) {
-//     mensa.push("Erro... senha deve possuir letra(s) minúscula(s)")
-//   }
+router.get("/", async (req, res) => {
+  try {
+    const clientes = await prisma.cliente.findMany({ select: clienteSelect })
+    res.status(200).json(clientes)
+  } catch (error) {
+    res.status(400).json(error)
+  }
+})
 
-//   if (grandes == 0) {
-//     mensa.push("Erro... senha deve possuir letra(s) maiúscula(s)")
-//   }
+router.post("/", async (req, res) => {
+  const valida = clienteSchema.safeParse(req.body)
+  if (!valida.success) {
+    res.status(400).json({ erro: valida.error })
+    return
+  }
 
-//   if (numeros == 0) {
-//     mensa.push("Erro... senha deve possuir número(s)")
-//   }
+  const verificaCliente = await prisma.cliente.findUnique({
+    where: { email: valida.data.email }
+  })
+  if (verificaCliente) {
+    res.status(409).json({ erro: "E-mail já cadastrado" })
+    return
+  }
 
-//   if (simbolos == 0) {
-//     mensa.push("Erro... senha deve possuir símbolo(s)")
-//   }
+  const erros = validaSenha(valida.data.senha)
+  if (erros.length > 0) {
+    res.status(400).json({ erro: erros.join("; ") })
+    return
+  }
 
-//   return mensa
-// }
+  const salt = bcrypt.genSaltSync(12)
+  const hash = bcrypt.hashSync(valida.data.senha, salt)
 
-// router.post("/", async (req, res) => {
+  const { nome, email, cidade, telefone } = valida.data
 
-//   const valida = clienteSchema.safeParse(req.body)
-//   if (!valida.success) {
-//     res.status(400).json({ erro: valida.error })
-//     return
-//   }
+  try {
+    const cliente = await prisma.cliente.create({
+      data: { nome, email, senha: hash, cidade, telefone },
+      select: clienteSelect,
+    })
+    res.status(201).json(cliente)
+  } catch (error) {
+    res.status(400).json({ erro: error })
+  }
+})
 
-//  // Verificação de e-mail duplicado
-//   const verificaCliente = await prisma.cliente.findUnique({
-//     where: { email: valida.data.email }
-//   })
-//   if (verificaCliente) {
-//     res.status(400).json({ erro: "E-mail já cadastrado" })
-//     return
-//   }
+router.get("/:id", async (req, res) => {
+  const { id } = req.params
+  try {
+    const cliente = await prisma.cliente.findUnique({
+      where: { id },
+      select: clienteSelect,
+    })
+    res.status(200).json(cliente)
+  } catch (error) {
+    res.status(400).json(error)
+  }
+})
+router.put("/:id", async (req, res) => {
+  const { id } = req.params
 
-//   const erros = validaSenha(valida.data.senha)
-//   if (erros.length > 0) {
-//     res.status(400).json({ erro: erros.join("; ") })
-//     return
-//   }
+  const clienteUpdateSchema = clienteSchema.partial()
+  const valida = clienteUpdateSchema.safeParse(req.body)
+  if (!valida.success) {
+    res.status(400).json({ erro: valida.error })
+    return
+  }
 
-//   // 12 é o número de voltas (repetições) que o algoritmo faz
-//   // para gerar o salt (sal/tempero)
-//   const salt = bcrypt.genSaltSync(12)
-//   // gera o hash da senha acrescida do salt
-//   const hash = bcrypt.hashSync(valida.data.senha, salt)
- 
-//   const { nome, email, cidade } = valida.data
+  const dados = { ...valida.data }
 
-//   // para o campo senha, atribui o hash gerado
-//   try {
-//     const cliente = await prisma.cliente.create({
-//       data: { nome, email, senha: hash, cidade }
-//     })
-//     res.status(201).json(cliente)
-//   } catch (error) {
-//     res.status(400).json({erro: error})
-//   }
-// })
+  // se o cliente estiver trocando a senha, gera um novo hash;
+  // caso contrário, remove o campo pra não sobrescrever com undefined
+  if (dados.senha) {
+    const erros = validaSenha(dados.senha)
+    if (erros.length > 0) {
+      res.status(400).json({ erro: erros.join("; ") })
+      return
+    }
+    const salt = bcrypt.genSaltSync(12)
+    dados.senha = bcrypt.hashSync(dados.senha, salt)
+  } else {
+    delete dados.senha
+  }
 
-// router.get("/:id", async (req, res) => {
-//   const { id } = req.params
-//   try {
-//     const cliente = await prisma.cliente.findUnique({
-//       where: { id }
-//     })
-//     res.status(200).json(cliente)
-//   } catch (error) {
-//     res.status(400).json(error)
-//   }
-// })
+  try {
+    const cliente = await prisma.cliente.update({
+      where: { id },
+      data: dados,
+      select: clienteSelect,
+    })
+    res.status(200).json(cliente)
+  } catch (error) {
+    res.status(400).json({ erro: error })
+  }
+})
 
-// export default router
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params
+
+  try {
+    const cliente = await prisma.cliente.delete({
+      where: { id },
+      select: clienteSelect,
+    })
+    res.status(200).json(cliente)
+  } catch (error) {
+    res.status(400).json({ erro: error })
+  }
+})
+export default router
