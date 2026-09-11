@@ -1,4 +1,5 @@
 import { prisma } from "../../lib/prisma"
+import { completarLivroComGemini } from "../../services/iaServices"
 import { Router } from "express"
 import { z } from "zod"
 
@@ -7,12 +8,12 @@ const router = Router()
 const livroSchema = z.object({
   titulo: z.string().min(2, { message: "Título deve possuir, no mínimo, 2 caracteres" }),
   autor: z.string().min(2, { message: "Autor deve possuir, no mínimo, 2 caracteres" }),
-  editora: z.string().min(2, { message: "Editora deve possuir, no mínimo, 2 caracteres" }),
-  ano: z.number().int({ message: "Ano deve ser um número inteiro" }),
-  categoria: z.string().min(2, { message: "Categoria deve possuir, no mínimo, 2 caracteres" }),
-  sinopse: z.array(z.string().min(1)).min(1, { message: "Sinopse deve possuir ao menos um item" }),
   quantidade: z.number().int({ message: "Quantidade deve ser um número inteiro" }),
   adminId: z.string().min(1, { message: "adminId é obrigatório" }),
+  categoria: z.string().min(2, { message: "Categoria deve possuir, no mínimo, 2 caracteres" }),
+  editora: z.string().min(2, { message: "Editora deve possuir, no mínimo, 2 caracteres" }).optional(),
+  ano: z.number().int({ message: "Ano deve ser um número inteiro" }).optional(),
+  sinopse: z.array(z.string().min(1)).optional(),
 })
 
 const livroUpdateSchema = livroSchema.partial()
@@ -90,8 +91,29 @@ router.post("/", async (req, res) => {
   }
 
   try {
+    const complemento = await completarLivroComGemini(
+      valida.data.titulo,
+      valida.data.autor,
+      valida.data.quantidade,
+      valida.data.categoria,
+      {
+        editora: valida.data.editora,
+        ano: valida.data.ano,
+        sinopse: valida.data.sinopse,
+      }
+    )
+
     const livro = await prisma.livro.create({
-      data: valida.data,
+      data: {
+        titulo: valida.data.titulo,
+        autor: valida.data.autor,
+        quantidade: valida.data.quantidade,
+        adminId: valida.data.adminId,
+        categoria: valida.data.categoria,
+        editora: complemento.editora,
+        ano: complemento.ano,
+        sinopse: complemento.sinopse,
+      },
     })
 
     res.status(201).json(livro)

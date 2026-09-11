@@ -1,44 +1,79 @@
-import { GoogleGenAI } from '@google/genai'
+import { GoogleGenAI } from "@google/genai"
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
-// Schema com os campos consultados
-const schemaVeiculo = {
-  type: 'OBJECT',
+
+const schemaLivroComplemento = {
+  type: "OBJECT",
   properties: {
-    pontosFortes: {
-      type: 'ARRAY',
-      items: { type: 'STRING' },
-      description: 'Principais pontos fortes do veículo (3 a 5 itens)',
+    editora: {
+      type: "STRING",
+      description: "Nome da editora",
     },
-    pontosFracos: {
-      type: 'ARRAY',
-      items: { type: 'STRING' },
-      description: 'Principais pontos fracos do veículo (3 a 5 itens)',
+    ano: {
+      type: "INTEGER",
+      description: "Ano de publicação",
     },
-    consumoMedioCidade: {
-      type: 'NUMBER',
-      description: 'Consumo médio na cidade, em km/l',
-    },
-    consumoMedioEstrada: {
-      type: 'NUMBER',
-      description: 'Consumo médio na estrada, em km/l',
+    sinopse: {
+      type: "ARRAY",
+      items: { type: "STRING" },
+      description: "Sinopse do livro em 3 a 5 frases curtas",
     },
   },
-  required: ['pontosFortes', 'pontosFracos', 'consumoMedioCidade', 'consumoMedioEstrada'],
-};
+  required: ["editora", "ano", "sinopse"],
+}
 
-export async function buscarDadosComGemini(marca: string, modelo: string, ano: number) {
-  const resposta = await ai.models.generateContent({
-    model: 'gemini-3.6-flash',
-    contents: `Veículo: ${marca} ${modelo} (${ano}), versão comercializada no Brasil.
-      Liste os principais pontos fortes, os principais pontos fracos e o
-      consumo médio de combustível na cidade e na estrada, em km/l.`,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: schemaVeiculo,
-    },
-  })
 
-  return JSON.parse(resposta.text || '{}')
+
+export async function completarLivroComGemini(
+  titulo: string,
+  autor: string,
+  quantidade: number,
+  categoria: string,
+  extras: {
+    editora?: string
+    ano?: number
+    sinopse?: string[]
+  }
+) {
+  try {
+    const resposta = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: `Complete apenas os campos em falta de um livro para cadastro com base nestas informações obrigatórias:
+
+Título: ${titulo}
+Autor: ${autor}
+Quantidade: ${quantidade}
+Categoria: ${categoria}
+
+Campos já informados pelo usuário, quando existirem:
+${extras.editora ? `Editora: ${extras.editora}` : "Editora: ausente"}
+${extras.ano ? `Ano: ${extras.ano}` : "Ano: ausente"}
+${extras.sinopse?.length ? `Sinopse base: ${extras.sinopse.join(" ")}` : "Sinopse: ausente"}
+
+Regras:
+- Não altere título, autor, quantidade nem categoria.
+- Preencha somente editora, ano e sinopse quando estiverem ausentes.
+- A sinopse deve ter 3 a 5 frases curtas.
+- Retorne apenas JSON válido, sem texto extra.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: schemaLivroComplemento,
+      },
+    })
+
+    const dados = JSON.parse(resposta.text || "{}")
+
+    return {
+      editora: extras.editora ?? dados.editora ?? "Sem editora",
+      ano: extras.ano ?? dados.ano ?? new Date().getFullYear(),
+      sinopse: extras.sinopse?.length ? extras.sinopse : dados.sinopse ?? ["Sinopse não disponível."],
+    }
+  } catch (error) {
+    return {
+      editora: extras.editora ?? "Sem editora",
+      ano: extras.ano ?? new Date().getFullYear(),
+      sinopse: extras.sinopse?.length ? extras.sinopse : ["Sinopse não disponível."],
+    }
+  }
 }
