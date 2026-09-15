@@ -74,24 +74,29 @@ model Admin {
 model Venda {
   id          Int           @id @default(autoincrement())
   dataVenda   DateTime      @default(now())
-  valor       Decimal       @db.Decimal(10,2)
+  valor       Decimal?      @db.Decimal(10,2)
+  observacao  String?       @db.VarChar(255)
+  resposta    String?       @db.VarChar(255)
   status      status        @default(Pendente)
   cliente     Cliente       @relation(fields: [clienteId], references: [id])
   clienteId   String        @db.VarChar(36)
-  itensVendas  itemVenda[]
+  itensVendas itemVenda[]
+  @@map("vendas")
 }
 
 model itemVenda {
   id          Int       @id @default(autoincrement())
   quantidade  Int
-  valor       Decimal   @db.Decimal(10,2)
+  valor       Decimal?  @db.Decimal(10,2)
   venda       Venda     @relation(fields: [vendaId], references: [id])
   vendaId     Int
   livro       Livro     @relation(fields: [livroId], references: [id])
   livroId     Int
+  @@map("itens_venda")
 }
 
-enum status{
+enum status {
   Pendente
-  Vendido
+  Aceita
+  Recusada
 }
