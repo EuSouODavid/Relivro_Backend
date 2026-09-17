@@ -4,6 +4,7 @@ import cors from 'cors'
 import routesLivros from './routes/livros'
 import routesClientes from './routes/clientes'   
 import routesLogin from './routes/login'
+import routesCompras from './routes/compras'
 
 const app = express()
 const port = 3000
@@ -14,6 +15,7 @@ app.use(cors())
 app.use("/livros", routesLivros)
 app.use("/clientes", routesClientes)  
 app.use("/clientes/login", routesLogin) 
+app.use("/compras", routesCompras)
 
 app.get('/', (req, res) => {
   res.send('API: ReLivro')
@@ -22,3 +24,8 @@ app.get('/', (req, res) => {
 app.listen(port, () => {
   console.log(`Servidor rodando na porta: ${port}`)
 })
+
+
+
+
+
