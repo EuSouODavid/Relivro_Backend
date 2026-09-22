@@ -17,6 +17,18 @@ const respostaSchema = z.object({
     resposta: z.string().max(255).optional(),
 })
  
+// cliente editando a própria proposta (só quantidade/observação)
+const edicaoClienteSchema = z.object({
+    clienteId: z.string().min(1, { message: "clienteId é obrigatório" }),
+    quantidade: z.number().int().positive({ message: "Quantidade deve ser maior que zero" }).optional(),
+    observacao: z.string().max(255).optional(),
+})
+ 
+// cliente cancelando a própria proposta
+const cancelamentoSchema = z.object({
+    clienteId: z.string().min(1, { message: "clienteId é obrigatório" }),
+})
+ 
 const STATUS_VALIDOS = ["Pendente", "Aceita", "Recusada"] as const
  
 // achata a Venda + o (único) itemVenda dela no formato que o front espera
@@ -225,5 +237,130 @@ router.delete("/:id", async (req, res) => {
     }
 })
  
-export default router
+// PATCH /compras/:id — o próprio cliente edita a quantidade e/ou a
+// observação da proposta, só enquanto ela está Pendente. Se a quantidade
+// mudar, ajusta o estoque do livro pela diferença (e barra se não tiver
+// estoque suficiente pra um aumento).
+router.patch("/:id", async (req, res) => {
+    const { id } = req.params
  
+    const valida = edicaoClienteSchema.safeParse(req.body)
+    if (!valida.success) {
+        res.status(400).json({ erro: valida.error })
+        return
+    }
+ 
+    const { clienteId, quantidade, observacao } = valida.data
+ 
+    try {
+        const vendaAtualizada = await prisma.$transaction(async (tx) => {
+            const venda = await tx.venda.findUnique({
+                where: { id: Number(id) },
+                include: { itensVendas: true },
+            })
+ 
+            if (!venda) {
+                throw new Error("Proposta não encontrada")
+            }
+ 
+            if (venda.clienteId !== clienteId) {
+                throw new Error("Essa proposta não pertence a esse cliente")
+            }
+ 
+            if (venda.status !== "Pendente") {
+                throw new Error("Só é possível editar uma proposta pendente")
+            }
+ 
+            const item = venda.itensVendas[0]
+ 
+            if (quantidade !== undefined && item && quantidade !== item.quantidade) {
+                const diferenca = quantidade - item.quantidade // > 0 = precisa reservar mais estoque
+ 
+                if (diferenca > 0) {
+                    const livro = await tx.livro.findUnique({ where: { id: item.livroId } })
+                    if (!livro || livro.quantidade < diferenca) {
+                        throw new Error(`Estoque insuficiente. Disponível: ${livro?.quantidade ?? 0}`)
+                    }
+                }
+ 
+                await tx.livro.update({
+                    where: { id: item.livroId },
+                    data: { quantidade: { decrement: diferenca } },
+                })
+ 
+                await tx.itemVenda.update({
+                    where: { id: item.id },
+                    data: { quantidade },
+                })
+            }
+ 
+            return tx.venda.update({
+                where: { id: Number(id) },
+                data: { observacao },
+                include: {
+                    cliente: true,
+                    itensVendas: {
+                        include: { livro: { include: { fotos: true } } },
+                    },
+                },
+            })
+        })
+ 
+        res.status(200).json(formataCompra(vendaAtualizada))
+    } catch (error: any) {
+        res.status(400).json({ erro: error.message })
+    }
+})
+ 
+// DELETE /compras/:id/cancelar — o próprio cliente cancela uma proposta
+// Pendente. Diferente do DELETE /compras/:id (usado pelo admin pra
+// remover uma venda já Aceita): aqui devolve pro estoque a quantidade que
+// tinha sido reservada na criação da proposta.
+router.delete("/:id/cancelar", async (req, res) => {
+    const { id } = req.params
+ 
+    const valida = cancelamentoSchema.safeParse(req.body)
+    if (!valida.success) {
+        res.status(400).json({ erro: valida.error })
+        return
+    }
+ 
+    const { clienteId } = valida.data
+ 
+    try {
+        await prisma.$transaction(async (tx) => {
+            const venda = await tx.venda.findUnique({
+                where: { id: Number(id) },
+                include: { itensVendas: true },
+            })
+ 
+            if (!venda) {
+                throw new Error("Proposta não encontrada")
+            }
+ 
+            if (venda.clienteId !== clienteId) {
+                throw new Error("Essa proposta não pertence a esse cliente")
+            }
+ 
+            if (venda.status !== "Pendente") {
+                throw new Error("Só é possível cancelar uma proposta pendente")
+            }
+ 
+            for (const item of venda.itensVendas) {
+                await tx.livro.update({
+                    where: { id: item.livroId },
+                    data: { quantidade: { increment: item.quantidade } },
+                })
+            }
+ 
+            await tx.itemVenda.deleteMany({ where: { vendaId: Number(id) } })
+            await tx.venda.delete({ where: { id: Number(id) } })
+        })
+ 
+        res.status(204).send()
+    } catch (error: any) {
+        res.status(400).json({ erro: error.message })
+    }
+})
+ 
+export default router
