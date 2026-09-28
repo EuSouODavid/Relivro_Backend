@@ -39,24 +39,52 @@ router.post("/", async (req, res) => {
     const { clienteId, livroId, quantidade, observacao } = valida.data
 
     try {
-        const venda = await prisma.venda.create({
-            data: {
-                clienteId,
-                observacao,
-                itensVendas: {
-                    create: [{ livroId, quantidade }],
+        const venda = await prisma.$transaction(async (tx) => {
+
+            const livro = await tx.livro.findUnique({
+                where: { id: livroId },
+            })
+
+            if (!livro) {
+                throw new Error("Livro não encontrado")
+            }
+
+            if (livro.quantidade < quantidade) {
+                throw new Error(
+                    `Estoque insuficiente. Disponível: ${livro.quantidade}`
+                )
+            }
+
+            const novaVenda = await tx.venda.create({
+                data: {
+                    clienteId,
+                    observacao,
+                    itensVendas: {
+                        create: [{ livroId, quantidade }],
+                    },
                 },
-            },
-            include: {
-                itensVendas: {
-                    include: { livro: { include: { fotos: true } } },
+                include: {
+                    itensVendas: {
+                        include: { livro: { include: { fotos: true } } },
+                    },
                 },
-            },
+            })
+
+            await tx.livro.update({
+                where: { id: livroId },
+                data: {
+                    quantidade: {
+                        decrement: quantidade,
+                    },
+                },
+            })
+
+            return novaVenda
         })
 
         res.status(201).json(formataCompra(venda))
-    } catch (error) {
-        res.status(400).json({ erro: error })
+    } catch (error: any) {
+        res.status(400).json({ erro: error.message })
     }
 })
 

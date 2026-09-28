@@ -5,6 +5,7 @@ import routesLivros from './routes/livros'
 import routesClientes from './routes/clientes'   
 import routesLogin from './routes/login'
 import routesCompras from './routes/compras'
+import routesDashboard from './routes/dashboard'
 
 const app = express()
 const port = 3000
@@ -16,6 +17,7 @@ app.use("/livros", routesLivros)
 app.use("/clientes", routesClientes)  
 app.use("/clientes/login", routesLogin) 
 app.use("/compras", routesCompras)
+app.use("/admin/dashboard", routesDashboard)
 
 app.get('/', (req, res) => {
   res.send('API: ReLivro')
