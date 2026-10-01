@@ -1,6 +1,7 @@
 import { prisma } from "../../lib/prisma"
 import { Router } from "express"
 import { z } from "zod"
+import { requireAdmin } from "../middlewares/requireAdmin"
  
 const router = Router()
  
@@ -119,7 +120,7 @@ router.post("/", async (req, res) => {
 // GET /compras — todas as propostas/vendas (visão do admin), com filtro
 // opcional por status (usado pela tela Propostas: ?status=Pendente, e pela
 // tela Vendas: ?status=Aceita).
-router.get("/", async (req, res) => {
+router.get("/", requireAdmin, async (req, res) => {
     const statusQuery = req.query.status
     const status = STATUS_VALIDOS.includes(statusQuery as any)
         ? (statusQuery as (typeof STATUS_VALIDOS)[number])
@@ -166,7 +167,7 @@ router.get("/:clienteId", async (req, res) => {
 // PUT /compras/:id — admin aceita ou recusa uma proposta Pendente.
 // Ao recusar, devolve pro estoque a quantidade que tinha sido reservada
 // na hora da proposta (o POST já decrementa o estoque na criação).
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAdmin, async (req, res) => {
     const { id } = req.params
  
     const valida = respostaSchema.safeParse(req.body)

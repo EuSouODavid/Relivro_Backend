@@ -1,6 +1,7 @@
 import { prisma } from "../../lib/prisma"
 import { Router } from "express"
 import { z } from "zod"
+import { requireAdmin } from "../middlewares/requireAdmin"
 
 const router = Router()
 
@@ -49,7 +50,7 @@ router.post("/avaliacoes", async (req, res) => {
     })
 
     if (avaliacaoExistente) {
-      res.status(409).json({ erro: "Este cliente já avaliou este livro" })
+      res.status(409).json({ erro: "Você já avaliou este livro" })
       return
     }
 
@@ -138,7 +139,7 @@ router.get("/clientes/:id/avaliacoes", async (req, res) => {
   }
 })
 
-router.delete("/avaliacoes/:id", async (req, res) => {
+router.delete("/avaliacoes/:id", requireAdmin, async (req, res) => {
   const { id } = req.params
   const avaliacaoId = Number(id)
 
