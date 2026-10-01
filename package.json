@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.19.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "@types/bcrypt": "^6.0.0",

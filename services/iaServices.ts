@@ -23,7 +23,26 @@ const schemaLivroComplemento = {
   required: ["editora", "ano", "sinopse"],
 }
 
+function normalizarTextoCampo(valor: unknown, fallback: string) {
+  const texto = typeof valor === "string" ? valor.trim() : ""
 
+  if (!texto) return fallback
+
+  const valoresInvalidos = [
+    "sem editora",
+    "editora ausente",
+    "editora não informada",
+    "n/a",
+    "indisponível",
+    "indisponivel",
+  ]
+
+  if (valoresInvalidos.includes(texto.toLowerCase())) {
+    return fallback
+  }
+
+  return texto
+}
 
 export async function completarLivroComGemini(
   titulo: string,
@@ -54,6 +73,7 @@ ${extras.sinopse?.length ? `Sinopse base: ${extras.sinopse.join(" ")}` : "Sinops
 Regras:
 - Não altere título, autor, quantidade nem categoria.
 - Preencha somente editora, ano e sinopse quando estiverem ausentes.
+- Nunca use os textos 'Sem editora', 'sem editora', 'editora ausente' ou similares.
 - A sinopse deve ter 3 a 5 frases curtas.
 - Retorne apenas JSON válido, sem texto extra.`,
       config: {
@@ -63,15 +83,16 @@ Regras:
     })
 
     const dados = JSON.parse(resposta.text || "{}")
+    const editoraFinal = normalizarTextoCampo(extras.editora ?? dados.editora, "Editora não informada")
 
     return {
-      editora: extras.editora ?? dados.editora ?? "Sem editora",
+      editora: editoraFinal,
       ano: extras.ano ?? dados.ano ?? new Date().getFullYear(),
       sinopse: extras.sinopse?.length ? extras.sinopse : dados.sinopse ?? ["Sinopse não disponível."],
     }
   } catch (error) {
     return {
-      editora: extras.editora ?? "Sem editora",
+      editora: normalizarTextoCampo(extras.editora, "Editora não informada"),
       ano: extras.ano ?? new Date().getFullYear(),
       sinopse: extras.sinopse?.length ? extras.sinopse : ["Sinopse não disponível."],
     }
