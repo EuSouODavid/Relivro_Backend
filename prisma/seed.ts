@@ -1,8 +1,19 @@
+import bcrypt from "bcrypt";
 import { prisma } from "../lib/prisma";
 import { type Prisma } from "../generated/prisma/client";
 
 function randomInt(min: number, max: number) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function hashSenha(senha: string) {
+    return bcrypt.hashSync(senha, 12);
+}
+
+function gerarTelefone() {
+    const ddd = randomInt(11, 99);
+    const numero = String(randomInt(100000000, 999999999));
+    return `(${ddd})${numero}`;
 }
 
 function pick<T>(lista: T[]): T {
@@ -20,7 +31,7 @@ const admins: Prisma.AdminCreateManyInput[] = [
     {
         nome: "Admin Relivro",
         email: "admin@relivro.com",
-        senha: "admin123",
+        senha: hashSenha("Admin@123"),
     },
 ];
 
@@ -36,14 +47,14 @@ const cidades = [
     "Curitiba", "Florianópolis", "Belo Horizonte", "Canoas", "Caxias do Sul",
 ]
 
-const clientes: Prisma.ClienteCreateManyInput[] = nomesClientes.map((nome, indice) => {
+const clientes: Prisma.ClienteCreateManyInput[] = nomesClientes.map((nome) => {
     const partes = nome.toLowerCase().split(" ")
     const emailBase = `${partes[0]}.${partes[partes.length - 1]}`
     return {
         nome,
         email: `${emailBase}@exemplo.com`,
-        senha: "cliente123",
-        telefone: `${randomInt(11, 53)}9${String(randomInt(10000000, 99999999))}`.slice(0, 11),
+        senha: hashSenha("Cliente@123"),
+        telefone: gerarTelefone(),
         cidade: pick(cidades),
     }
 })
