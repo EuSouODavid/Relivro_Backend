@@ -14,6 +14,7 @@ const livroSchema = z.object({
   editora: z.string().min(2, { message: "Editora deve possuir, no mínimo, 2 caracteres" }).optional(),
   ano: z.number().int({ message: "Ano deve ser um número inteiro" }).optional(),
   sinopse: z.array(z.string().min(1)).optional(),
+  fotos: z.array(z.string().url({ message: "URL da imagem inválida" })).optional(),
 })
 
 const livroUpdateSchema = livroSchema.partial()
@@ -116,7 +117,26 @@ router.post("/", async (req, res) => {
       },
     })
 
-    res.status(201).json(livro)
+    if (valida.data.fotos && valida.data.fotos.length > 0) {
+      await prisma.foto.createMany({
+        data: valida.data.fotos.map((url) => ({
+          url,
+          livroId: livro.id,
+        })),
+      })
+    }
+
+    const livroComFotos = await prisma.livro.findUnique({
+      where: { id: livro.id },
+      include: {
+        fotos: true,
+        avaliacoes: true,
+        admin: true,
+        itensVendas: true,
+      },
+    })
+
+    res.status(201).json(livroComFotos)
   } catch (error) {
     res.status(400).json({ erro: error })
   }
@@ -132,12 +152,39 @@ router.put("/:id", async (req, res) => {
   }
 
   try {
+    const { adminId: _adminId, fotos, ...dadosLivro } = valida.data
+
     const livro = await prisma.livro.update({
       where: { id: Number(id) },
-      data: valida.data,
+      data: dadosLivro,
     })
 
-    res.status(200).json(livro)
+    if (Object.prototype.hasOwnProperty.call(req.body, 'fotos')) {
+      await prisma.foto.deleteMany({
+        where: { livroId: livro.id },
+      })
+
+      if (Array.isArray(fotos) && fotos.length > 0) {
+        await prisma.foto.createMany({
+          data: fotos.map((url) => ({
+            url,
+            livroId: livro.id,
+          })),
+        })
+      }
+    }
+
+    const livroAtualizado = await prisma.livro.findUnique({
+      where: { id: livro.id },
+      include: {
+        fotos: true,
+        avaliacoes: true,
+        admin: true,
+        itensVendas: true,
+      },
+    })
+
+    res.status(200).json(livroAtualizado)
   } catch (error) {
     res.status(400).json({ erro: error })
   }
