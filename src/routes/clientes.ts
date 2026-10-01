@@ -69,6 +69,29 @@ router.get("/", async (req, res) => {
 })
 
 router.post("/", async (req, res) => {
+  /*
+#swagger.tags = ['Clientes']
+#swagger.summary = 'Cadastra um cliente'
+#swagger.description = 'Realiza o cadastro de um novo cliente.'
+#swagger.parameters['body'] = {
+in: 'body',
+required: true,
+schema: {
+  "nome": "João da Silva",
+  "email": "joao@email.com",
+  "senha": "Joao@1234",
+  "cidade": "São Paulo",
+  "telefone": "(11)912345678"
+}
+}
+#swagger.responses[201] = {
+description: 'Cliente cadastrado com sucesso.'
+}
+#swagger.responses[400] = {
+description: 'Dados inválidos.'
+}
+*/
+const resultado = clienteSchema.safeParse(req.body);
   const valida = clienteSchema.safeParse(req.body)
   if (!valida.success) {
     res.status(400).json({ erro: valida.error })
