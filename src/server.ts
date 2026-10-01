@@ -8,12 +8,16 @@ import routesCompras from './routes/compras'
 import routesDashboard from './routes/dashboard'
 import routesAvaliacoes from './routes/avaliacoes'
 import routesAdminLogin from './routes/adminLogin'
+import swaggerUi from "swagger-ui-express";
+import swaggerDocument from "../swagger-output.json";
 
 const app = express()
 const port = 3000
 
 app.use(express.json())
 app.use(cors())
+// Documentação Swagger
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use("/livros", routesLivros)
 app.use("/clientes", routesClientes)
